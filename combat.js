@@ -3,7 +3,7 @@
 const $=id=>document.getElementById(id);
 function setText(id,value){const node=$(id),text=String(value);if(node.textContent!==text)node.textContent=text;}
 function setHTML(id,value){const node=$(id);if(node._renderedHTML!==value){node._renderedHTML=value;node.innerHTML=value;}}
-const sfxNames=['trialConcluded',...['nono','ren','luna','liria','mayoi','mai','moa','souka','shion','akina','anna','erin','sigrid','doll','chikage','canon','koyomi','haru'].map(id=>'domainVoice-'+id),'nonoBuff1','nonoBuff2','engageDamage','meleeUltimate','rangedUltimate','swapOnly','chikageDefense','enemyHit','break','death','meleeCharge','rangedCharge','yellow','perfect','good','bad','purple','assaultBlock','red','blue','domainReady','domainStart','domainEnd','meleeTag','rangedAttack','rangedTag','meleeAttack'];
+const sfxNames=['chargeMeleeHold','chargeMeleeReady','chargeRangedHold','chargeRangedReady','trialConcluded',...['nono','ren','luna','liria','mayoi','mai','moa','souka','shion','akina','anna','erin','sigrid','doll','chikage','canon','koyomi','haru'].map(id=>'domainVoice-'+id),'nonoBuff1','nonoBuff2','engageDamage','meleeUltimate','rangedUltimate','swapOnly','chikageDefense','enemyHit','break','death','meleeCharge','rangedCharge','yellow','perfect','good','bad','purple','assaultBlock','red','blue','domainReady','domainStart','domainEnd','meleeTag','rangedAttack','rangedTag','meleeAttack'];
 const sfxPool={};let pendingSfx=[];
 function soundNode(key){if(typeof Audio==='undefined')return null;const list=sfxPool[key]||(sfxPool[key]=[]);let a=list.find(a=>a.paused||a.ended);if(!a){a=new Audio('assets/combat/audio/'+key+'.mp3');a.preload='auto';list.push(a);}return a;}
 function playSfx(key,next){const a=soundNode(key);if(!a)return;const token=audioSession;a.onended=next?()=>{a.onended=null;if(token===audioSession)playSfx(next);}:null;a.volume=1;a.currentTime=0;a.play()?.catch(()=>{});}
@@ -64,8 +64,13 @@ function renderBattleSkill(){
  $('scene').classList.toggle('charge-shake-strong',s.charging&&s.chargeElapsed>=900);
  $('skill').setAttribute('aria-label',r?`전투 스킬 ${b.stage}단${b.ct?' · CT '+b.ct:''}${r.chargeMs?' · 길게 눌러 차지':''}`:'전투 스킬');
 }
-function beginCharge(){if(s.charging||!chargeAvailable()||!canRequest('skill'))return;s.charging=true;s.chargeElapsed=0;render();}
-function cancelCharge(){s.charging=false;s.chargeElapsed=0;}
+let chargeHum=null;
+function stopChargeHum(){if(chargeHum){chargeHum.pause();chargeHum.currentTime=0;chargeHum.loop=false;chargeHum=null;}}
+function beginChargeSound(){stopChargeHum();s.chargeSoundReady=false;const type=attackSound(activeMember().id)==='meleeAttack'?'Melee':'Ranged';s.chargeSoundType=type;
+ chargeHum=soundNode('charge'+type+'Hold');if(chargeHum){chargeHum.loop=true;chargeHum.volume=1;chargeHum.currentTime=0;chargeHum.play()?.catch(()=>{});}}
+function tickChargeSound(){if(!s.charging||s.chargeSoundReady||s.chargeElapsed<900)return;s.chargeSoundReady=true;stopChargeHum();playSfx('charge'+s.chargeSoundType+'Ready');}
+function beginCharge(){if(s.charging||!chargeAvailable()||!canRequest('skill'))return;s.charging=true;s.chargeElapsed=0;beginChargeSound();render();}
+function cancelCharge(){stopChargeHum();s.charging=false;s.chargeElapsed=0;}
 function releaseCharge(){if(s.paused){if(s.charging)s.releaseAfterPause=true;return;}if(!s.charging)return;const level=s.chargeElapsed>=900&&!(activeMember().id==='sigrid'&&s.ap-reserved()<2)?2:1;cancelCharge();if(canRequest('skill',level)){const sounded=level===2&&activeMember().id!=='nono';if(sounded)playSfx(attackSound(activeMember().id).replace('Attack','Charge'));attack('skill',level,sounded);}render();}
 
 
@@ -155,7 +160,7 @@ function scheduleHitVisual(kind,level=1){
  delays.forEach((delay,index)=>{s.hitFxQueue.push({delay,ranged,blue,comboIndex:combo?index:0});if(rangedCombo&&index>0)s.hitFxQueue.push({delay:delay-90,ranged,blue,launch:true});});
  if(ranged){$('projectile-fx').classList.toggle('blue-projectile',blue);$('projectile-fx').style.setProperty('--flight-ms',delays[0]+'ms');pulse('projectile-fx','flying');}
 }
-function tickHitVisual(dt){for(const f of s.hitFxQueue)f.delay-=dt;const due=s.hitFxQueue.filter(f=>f.delay<=0);s.hitFxQueue=s.hitFxQueue.filter(f=>f.delay>0);for(const f of due){if(f.launch){$('projectile-fx').classList.toggle('blue-projectile',f.blue);$('projectile-fx').style.setProperty('--flight-ms','90ms');pulse('projectile-fx','flying');continue;}if(f.ranged)$('projectile-fx').classList.remove('flying');$('hit').classList.toggle('blue-impact',f.blue);$('hit').classList.toggle('ranged-impact',f.ranged);$('hit').classList.toggle('melee-impact',!f.ranged);if(f.comboIndex>0)pulse('ally','strike');pulse('enemy','hurt');pulse('hit','flash');}}
+function tickHitVisual(dt){for(const f of s.hitFxQueue)f.delay-=dt;const due=s.hitFxQueue.filter(f=>f.delay<=0);s.hitFxQueue=s.hitFxQueue.filter(f=>f.delay>0);for(const f of due){if(f.launch){$('projectile-fx').classList.toggle('blue-projectile',f.blue);$('projectile-fx').style.setProperty('--flight-ms','90ms');pulse('projectile-fx','flying');continue;}if(f.ranged)$('projectile-fx').classList.remove('flying');$('hit').classList.toggle('blue-impact',f.blue);$('hit').classList.toggle('ranged-impact',f.ranged);$('hit').classList.toggle('melee-impact',!f.ranged);pulseBatch([...(f.comboIndex>0?[['ally','strike']]:[]),['enemy','hurt'],['hit','flash']]);}}
 function resolveHit(kind,level=1,stage=1){const damageQueueStart=(s.damageNumbers||[]).length;const coefficient=hitCoefficient(kind,level,stage),fallback=kind==='tag'||kind==='tagSpecial'?2:skills[kind]?.damage||0;
  let damage=coefficient===null?fallback:damageFromCoefficient(coefficient,fallback);
  // Diamond ultimate changes coefficient even in legacy test-damage mode.
@@ -197,6 +202,7 @@ function renderEffectLedger(){const rows=collectEffectRows(),signature=JSON.stri
  s.effectLedgerPrevious=next;
  for(const side of ['enemy','ally']){const items=rows.filter(row=>row.side===side);$(side+'-effect-list').replaceChildren(...(items.length?items.map(row=>{const el=document.createElement('div');el.className='effect-row';const title=document.createElement('strong');title.textContent=(side==='ally'?row.target+' · ':'')+row.name;const badge=document.createElement('span');badge.className='effect-kind '+(row.type==='디버프'?'negative':'positive');badge.textContent=row.type+' · '+row.count+'중첩';const detail=document.createElement('small');detail.textContent=row.duration+(row.detail?' / '+row.detail:'');el.replaceChildren(title,badge,detail);return el;}):[(()=>{const el=document.createElement('p');el.className='effect-empty';el.textContent='적용 중인 효과 없음';return el;})()]));}
 }
+function pulseBatch(items){for(const [id,cls] of items)$(id).classList.remove(cls);void $('scene').offsetWidth;for(const [id,cls] of items)$(id).classList.add(cls);}
 function pulse(id,cls){$(id).classList.remove(cls);void $(id).offsetWidth;$(id).classList.add(cls);}
 function activeMember(){const rosterIndex=s?.party?.length?s.party[s.active]:(selected[0]??0);return roster[rosterIndex]||roster[0];}
 function visualFor(m){return characterAssets[m?.id]||characterAssets.canon;}
@@ -498,6 +504,25 @@ function gradeResult(grade){const clashMs=grade==='FAIL'?0:prepareClash(grade);i
 function resolveFailure(){cancelCharge();const wasCounter=s.pattern==='counter';takeHit();engage(s.pattern==='normal',patterns[s.pattern].name+' 피격','enemy');if(wasCounter&&s.running)gradeResult('FAIL');}
 
 
+let effectsReady=true;
+const effectImages=new Map();
+function prepareEffectImage(src){
+ if(effectImages.has(src))return effectImages.get(src).ready;
+ if(typeof Image==='undefined')return Promise.resolve();
+ const image=new Image();image.decoding='async';
+ const ready=new Promise(resolve=>{let settled=false;const finish=()=>{if(settled)return;settled=true;clearTimeout(timer);resolve();};const timer=setTimeout(finish,10000);
+ image.onload=()=>{if(image.decode)image.decode().then(finish,finish);else finish();};image.onerror=()=>{effectImages.delete(src);finish();};image.src=src;
+ });effectImages.set(src,{image,ready});return ready;
+}
+function prepareBattleEffects(){const state=s;effectsReady=false;const urls=['blade-slash.svg','arc-projectile.svg','arc-projectile-blue.svg'].map(n=>'assets/combat/fx/'+n);
+ for(const type of ['melee','ranged'])for(const stage of [1,2])urls.push('assets/combat/ultimate-fx/'+type+'-'+stage+'.png');
+ Promise.all(urls.map(prepareEffectImage)).then(()=>{if(s===state)effectsReady=true;});
+}
+function prepareUltimateLayers(id){const type=id==='haru'||attackSound(id)==='meleeAttack'?'melee':'ranged';
+ const jobs=[];for(const stage of [1,2]){const image=$(stage===1?'ultimate-impact-image':'ultimate-impact-image-next'),src='assets/combat/ultimate-fx/'+type+'-'+stage+'.png';setVisualSource(image,src);jobs.push(prepareEffectImage(src));}
+ return Promise.all(jobs);
+}
+
 function clearUltimateImpact(){
  if(s)s.ultimateImpact=null;
  $('ultimate-impact').hidden=true;
@@ -507,12 +532,12 @@ function startUltimateImpact(id,done){
  const melee=id==='haru'||attackSound(id)==='meleeAttack',type=melee?'melee':'ranged',blue=BLUE_PROJECTILE_IDS.has(id)||['sigrid','doll','ren'].includes(id);
  s.ultimateImpact={id,type,blue,elapsed:0,first:melee?250:600,burst:false,done};
  const el=$('ultimate-impact');el.style.setProperty('--ult-hue',melee?'145deg':'225deg');el.classList.toggle('ult-recolor',melee?!blue:blue);el.classList.remove('ult-burst');el.hidden=false;
- $('ultimate-impact-image').src='assets/combat/ultimate-fx/'+type+'-1.png';
+ prepareUltimateLayers(id);$('ultimate-impact-image').hidden=false;$('ultimate-impact-image-next').hidden=true;
  playSfx(type+'Ultimate');pulse('scene','ult-medium');
 }
 function tickUltimateImpact(dt){
  const t=s.ultimateImpact;if(!t)return;t.elapsed+=dt;
- if(!t.burst&&t.elapsed>=t.first){t.burst=true;$('ultimate-impact-image').src='assets/combat/ultimate-fx/'+t.type+'-2.png';pulse('ultimate-impact','ult-burst');$('scene').classList.remove('ult-medium');pulse('scene','ult-heavy');}
+ if(!t.burst&&t.elapsed>=t.first){t.burst=true;$('ultimate-impact-image').hidden=true;$('ultimate-impact-image-next').hidden=false;pulse('ultimate-impact','ult-burst');$('scene').classList.remove('ult-medium');pulse('scene','ult-heavy');}
  if(t.elapsed>=1830){const done=t.done;clearUltimateImpact();done();}
 }
 
@@ -529,10 +554,10 @@ function clearUltimateMovie(){
  if(s)s.ultimateMovie=null;
 }
 function playUltimateMovie(id,done){
- const v=$('ultimate-video'),token={id};s.ultimateMovie=token;
+ const v=$('ultimate-video'),token={id};s.ultimateMovie=token;const effects=prepareUltimateLayers(id);
  $('ultimate-movie').hidden=false;$('battle').classList.add('playing-ultimate');
  warmUltimateMovie(id);if(v.error)v.load?.();v.currentTime=0;v.volume=1;
- const complete=()=>{if(s.ultimateMovie!==token)return;clearUltimateMovie();if(id==='chikage'||id==='nono')done();else startUltimateImpact(id,done);};
+ const complete=()=>{if(s.ultimateMovie!==token||token.completing)return;token.completing=true;effects.then(()=>{if(s.ultimateMovie!==token)return;requestAnimationFrame(()=>{if(s.ultimateMovie!==token)return;clearUltimateMovie();if(id==='chikage'||id==='nono')done();else startUltimateImpact(id,done);});});};
  v.onended=complete;v.onerror=complete;
  try{if(v.play)v.play()?.catch(complete);else complete();}catch{complete();}
 }
@@ -619,7 +644,7 @@ function resumeBattle(){
  raf=requestAnimationFrame(tick);$('pause-button').focus?.();
 }
 
-function tick(now){if(s?.victorySequence){const dt=Math.min(Math.max(0,now-last),80);last=now;tickVictory(document.hidden?0:dt);if(s.victorySequence.stage!=='complete')raf=requestAnimationFrame(tick);return;}if(!s.running||s.paused)return;const dt=document.hidden?0:Math.min(now-last,80);last=now;
+function tick(now){if(s.phase==='LOADING'&&!effectsReady){last=now;raf=requestAnimationFrame(tick);return;}if(s?.victorySequence){const dt=Math.min(Math.max(0,now-last),80);last=now;tickVictory(document.hidden?0:dt);if(s.victorySequence.stage!=='complete')raf=requestAnimationFrame(tick);return;}if(!s.running||s.paused)return;const dt=document.hidden?0:Math.min(now-last,80);last=now;
  if(s.ultimateImpact){tickUltimateImpact(dt);if(s.running)raf=requestAnimationFrame(tick);return;}
  if(s.ultimateMovie){raf=requestAnimationFrame(tick);return;}
  if(s.domainVisual){tickDomainVisual(dt);render();if(s.running)raf=requestAnimationFrame(tick);return;}
@@ -642,7 +667,7 @@ function tick(now){if(s?.victorySequence){const dt=Math.min(Math.max(0,now-last)
  if(s.breakFxTime>0){s.breakFxTime=Math.max(0,s.breakFxTime-dt);if(!s.breakFxTime)$('scene').classList.remove('break-impact');}
  if(s.nonoBuffTime>0)s.nonoBuffTime=Math.max(0,s.nonoBuffTime-dt);
  if(s.apFill>0){s.apFill-=dt;s.apFillElapsed+=dt;}if(s.enemyTime>0){s.enemyTime=Math.max(0,s.enemyTime-dt);if(!s.enemyTime)clearEnemy();}if(s.poseTime>0){s.poseTime=Math.max(0,s.poseTime-dt);if(!s.poseTime){clearPose();$('scene').classList.remove('clash');}}if(s.gradeTime>0){s.gradeTime-=dt;if(s.gradeTime<=0)$('grade').hidden=true;}if(s.busy>0)s.busy=Math.max(0,s.busy-dt);
- if(s.charging)s.chargeElapsed=Math.min(1800,s.chargeElapsed+dt);
+ if(s.charging){s.chargeElapsed=Math.min(1800,s.chargeElapsed+dt);tickChargeSound();}
  const locked=s.busy||s.poseTime||s.enemyTime;
  if(s.victoryPending&&!locked){finish(true);return;}
  if(!locked&&!s.charging&&s.autoAttackAfterParry){s.autoAttackAfterParry=false;if(s.ap>=skills.attack.cost){log('패링 후 일반 공격 자동 발동');s.parryFollowHit=true;execute('attack');s.parryFollowHit=false;if(s.running)pulse('ally','parry-follow','survivor-arrival');}else log('패링 후 일반 공격 · AP 부족');}
@@ -661,8 +686,8 @@ function tick(now){if(s?.victorySequence){const dt=Math.min(Math.max(0,now-last)
  else if(s.phase==='ENGAGE'&&!locked&&!s.charging){if(s.ap===0&&!s.commands.length)s.advance=Math.min(s.advance,350);s.advance-=dt;if(s.advance<=0)next();}
  render();if(s.running)raf=requestAnimationFrame(tick);
 }
-function reset(){clearVictory();if(s)s.nonoBuffTime=0;$('damage-layer').replaceChildren();$('engage-damage').hidden=true;clearUltimateImpact();clearUltimateMovie();pausedAudio=[];$('pause-overlay').hidden=true;$('battle').classList.remove('is-paused');clearDeathVisual();$('projectile-fx').classList.remove('flying');$('hit').classList.remove('flash');stopBattleAudio();cancelAnimationFrame(raf);clearDomainVisual();$('scene').classList.remove('break-impact','tag-camera');showScreen('selection');clearPose();clearEnemy();$('scene').classList.remove('clash');$('grade').hidden=true;$('trial-intro').hidden=true;s={victoryOwner:null,victorySequence:null,nonoBuffTime:0,nonoBuffLevel:1,damageNumbers:[],engageDamage:0,paused:false,releaseAfterPause:false,deathTransition:null,victoryPending:false,hitFxQueue:[],parryFollowHit:false,domainVisual:null,domainVisualQueue:[],domainImpactCount:0,tagFxTime:0,breakRest:false,breakUntilRound:0,breakFxTime:0,enemyBP:100,enemyBroken:false,breakRewardPending:false,lastBreakBonus:0,magicChain:null,enemyEffects:{},effectSignature:null,battleStates:{},skillLevels:[],skillSounds:[],commandCosts:[],charging:false,chargeElapsed:0,loadingTime:0,introTime:0,commands:[],counterIndex:0,generatedTail:[],apClearing:0,clearCount:0,apTarget:4,enemyTime:0,apFill:0,apFillElapsed:0,poseTime:0,gradeTime:0,autoAttackAfterParry:false,tagDefenseActive:false,specialVisual:null,running:false,phase:'READY',round:1,ap:0,enemyHP:100,hp:[5000,5000,5000,5000],energy:[100,100,100,100],active:0,party:[...selected],pattern:'normal',canAct:false,busy:0,advance:0,elapsed:0,duration:2800};history.length=0;$('log').replaceChildren();setText('status','파티를 편성하고 전투 시작을 눌러주세요.');$('result').hidden=true;$('queue').replaceChildren();$('runner').hidden=true;formation();render();}
-function start(){if(s.running||!selected.length)return;reset();s.running=true;for(const i of s.party){const id=roster[i].id;stateFor(id);if(id==='koyomi')grantUS(id,750);}s.phase='LOADING';s.loadingTime=650;s.ap=0;primeBattleAudio();warmPartyVisuals();showScreen('loading');$('loading-progress').style.width='0%';formation();render();last=performance.now();raf=requestAnimationFrame(tick);}
+function reset(){stopChargeHum();clearVictory();if(s)s.nonoBuffTime=0;$('damage-layer').replaceChildren();$('engage-damage').hidden=true;clearUltimateImpact();clearUltimateMovie();pausedAudio=[];$('pause-overlay').hidden=true;$('battle').classList.remove('is-paused');clearDeathVisual();$('projectile-fx').classList.remove('flying');$('hit').classList.remove('flash');stopBattleAudio();cancelAnimationFrame(raf);clearDomainVisual();$('scene').classList.remove('break-impact','tag-camera');showScreen('selection');clearPose();clearEnemy();$('scene').classList.remove('clash');$('grade').hidden=true;$('trial-intro').hidden=true;s={victoryOwner:null,victorySequence:null,nonoBuffTime:0,nonoBuffLevel:1,damageNumbers:[],engageDamage:0,paused:false,releaseAfterPause:false,deathTransition:null,victoryPending:false,hitFxQueue:[],parryFollowHit:false,domainVisual:null,domainVisualQueue:[],domainImpactCount:0,tagFxTime:0,breakRest:false,breakUntilRound:0,breakFxTime:0,enemyBP:100,enemyBroken:false,breakRewardPending:false,lastBreakBonus:0,magicChain:null,enemyEffects:{},effectSignature:null,battleStates:{},skillLevels:[],skillSounds:[],commandCosts:[],charging:false,chargeElapsed:0,loadingTime:0,introTime:0,commands:[],counterIndex:0,generatedTail:[],apClearing:0,clearCount:0,apTarget:4,enemyTime:0,apFill:0,apFillElapsed:0,poseTime:0,gradeTime:0,autoAttackAfterParry:false,tagDefenseActive:false,specialVisual:null,running:false,phase:'READY',round:1,ap:0,enemyHP:100,hp:[5000,5000,5000,5000],energy:[100,100,100,100],active:0,party:[...selected],pattern:'normal',canAct:false,busy:0,advance:0,elapsed:0,duration:2800};history.length=0;$('log').replaceChildren();setText('status','파티를 편성하고 전투 시작을 눌러주세요.');$('result').hidden=true;$('queue').replaceChildren();$('runner').hidden=true;formation();render();}
+function start(){if(s.running||!selected.length)return;reset();s.running=true;for(const i of s.party){const id=roster[i].id;stateFor(id);if(id==='koyomi')grantUS(id,750);}s.phase='LOADING';s.loadingTime=650;s.ap=0;primeBattleAudio();prepareBattleEffects();warmPartyVisuals();showScreen('loading');$('loading-progress').style.width='0%';formation();render();last=performance.now();raf=requestAnimationFrame(tick);}
 for(const group of Object.keys(filters)){for(const value of [...new Set(roster.map(m=>m[group]))]){$('filter-'+group+'-'+value).onclick=()=>{const set=filters[group];if(set.has(value))set.delete(value);else set.add(value);$('filter-'+group+'-'+value).classList.toggle('active',set.has(value));$('filter-'+group+'-'+value).setAttribute('aria-pressed',String(set.has(value)));filterRoster();};}}$('clear-filters').onclick=()=>{for(const group of Object.keys(filters)){for(const value of filters[group]){$('filter-'+group+'-'+value).classList.remove('active');$('filter-'+group+'-'+value).setAttribute('aria-pressed','false');}filters[group].clear();}$('character-search').value='';filterRoster();};
 $('character-search').oninput=filterRoster;$('collapse-list').onclick=()=>{const body=$('character-list-body');body.hidden=!body.hidden;setText('collapse-list',body.hidden?'목록 펼치기':'목록 접기');$('collapse-list').setAttribute('aria-expanded',String(!body.hidden));};
 for(const k of Object.keys(skills))$(k).onclick=()=>attack(k);
@@ -681,3 +706,4 @@ for(const id of ['attack','skill','ultimate','counter-button'])$(id).addEventLis
 for(const id of ['ally','enemy','hit'])$(id).addEventListener?.('animationend',e=>{if(e.target!==$(id))return;$(id).classList.remove('flash','hurt','strike');});
 window.combatSnapshot=()=>JSON.parse(JSON.stringify(s));reset();
 })();
+
