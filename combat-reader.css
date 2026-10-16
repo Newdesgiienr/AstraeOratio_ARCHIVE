@@ -12,3 +12,7 @@ body{margin:0;background:#f5f6f8;touch-action:pan-y;-webkit-touch-callout:none}
 .reader-character .row-body{font-size:14px;line-height:1.75}.reader-character .row-heading h4{font-size:15px}
 .tooltip{max-width:calc(100vw - 24px);max-height:55vh;overflow-y:auto;z-index:100}
 @media(max-width:420px){#reader-content{padding:0 10px 20px}#reader-party{gap:5px;padding:8px}#reader-party button{font-size:11px}.reader-character .potential-row{display:block}.reader-character .row-body{padding:12px}}
+
+/* PC reader: hide scrollbar chrome while preserving native scrolling. */
+html,body{scrollbar-width:none}
+html::-webkit-scrollbar,body::-webkit-scrollbar{display:none;width:0;height:0}
