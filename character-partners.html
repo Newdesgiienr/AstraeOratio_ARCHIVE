@@ -69,7 +69,34 @@
 
 /* V14: explicit giver / recipient labels in connected skills. */
 .skill-direction{padding:9px 14px;border-bottom:1px solid var(--line);font-size:13px;font-weight:850;line-height:1.5}.skill-direction.give{background:#fff2ed;color:#ac402e}.skill-direction.receive{background:#edf7f4;color:#257563}.skill-direction.consume{background:#fff7e9;color:#886022}
-</style></head><body><header class="top"><div class="top-inner"><div class="mark">AO</div><div><div class="brand">ASTRAE ORATIO BATTLE LAB</div><div class="sub">아스트라에 오라티오 전투 데이터베이스</div><nav aria-label="주 메뉴"><a href="glossary.html">용어 사전</a><a href="characters.html">캐릭터</a><a href="artifacts.html">아티팩트</a><a href="vignettes.html">비네트</a><a href="score-trial.html">스코어 트라이얼</a><a href="combat.html">전투 시뮬레이션</a><a href="combat-rules.html">전투 규칙 구성</a><a href="character-partners.html" class="active" aria-current="page">캐릭터 연계</a></nav></div></div></header><main>
+
+/* Shared archive header */
+.app-topbar{--surface-soft:#f7f8fa}.app-topbar a{text-decoration:none}.app-topbar .brand{font:inherit;letter-spacing:normal;color:var(--ink)}.app-topbar nav{margin:0;flex-wrap:nowrap}
+.app-topbar{ position: sticky; top: 0; z-index: 100; display: flex; align-items: center; height: 72px; padding: 0 30px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.96); backdrop-filter: blur(14px); box-shadow: 0 3px 15px rgba(28,38,49,.06); }
+.app-topbar .brand{ display: flex; align-items: center; gap: 13px; min-width: 0; }
+.app-topbar .brand-mark{ display: grid; place-items: center; width: 42px; height: 42px; border-radius: 10px; background: var(--navy); color: #fff; font-size: 12px; font-weight: 950; letter-spacing: .06em; }
+.app-topbar .brand-copy{ min-width: 0; }
+.app-topbar .brand-title{ display: block; width: fit-content; }
+.app-topbar .brand strong{ display: block; font-size: 16px; letter-spacing: .06em; }
+.app-topbar .brand-lower{ display: flex; align-items: center; gap: 12px; margin-top: 1px; }
+.app-topbar .brand-lower small{ margin: 0; color: #7d8793; font-size: 13px; font-weight: 650; white-space: nowrap; }
+.app-topbar .site-nav{ display: flex; align-items: center; gap: 5px; }
+.app-topbar .site-nav a{ padding: 4px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-soft); color: #66717d; font-size: 12px; font-weight: 850; line-height: 1.35; }
+.app-topbar .site-nav a:hover{ border-color: #9ea9b5; color: var(--navy); }
+.app-topbar .site-nav a.active{ border-color: var(--navy); background: var(--navy); color: #fff; }
+@media(max-width:900px){.app-topbar{height:auto;min-height:62px;padding:9px 16px}.app-topbar .brand-lower{align-items:flex-start;flex-direction:column;gap:5px}.app-topbar .brand-lower small{display:none}.app-topbar .site-nav{flex-wrap:wrap}}
+</style></head><body><header class="app-topbar">
+<div class="brand">
+<a aria-label="Astrae Oratio Battle Lab 캐릭터 페이지" class="brand-mark" href="characters.html">AO</a>
+<div class="brand-copy">
+<a class="brand-title" href="characters.html"><strong>ASTRAE ORATIO BATTLE LAB</strong></a>
+<div class="brand-lower">
+<small>아스트라에 오라티오 전투 데이터베이스</small>
+<nav aria-label="페이지 이동" class="site-nav"><a href="glossary.html">용어 사전</a><a href="characters.html">캐릭터</a><a href="artifacts.html">아티팩트</a><a href="vignettes.html">비네트</a><a href="score-trial.html">스코어 트라이얼</a><a href="combat.html">전투 시뮬레이션</a><a href="combat-rules.html">전투 규칙 구성</a><a aria-current="page" class="active" href="character-partners.html">캐릭터 연계</a></nav>
+</div>
+</div>
+</div>
+</header><main>
 <div class="heading"><div><span class="eyebrow">CHARACTER SYNERGY GUIDE</span><h1 class="mode-title" id="modeTitle" aria-label="캐릭터로 찾는 스킬 연계"><span class="title-buttons" role="group" aria-label="보기 모드"><button id="characterMode" data-mode="character" class="mode-button active" aria-pressed="true">캐릭터</button><button id="keywordMode" data-mode="keyword" class="mode-button" aria-pressed="false">키워드</button></span><span>로 찾는 스킬 연계</span></h1></div></div>
 <section class="panel" id="filter-panel" aria-label="캐릭터 및 키워드 모드 선택"><div class="panel-body"><div class="aligned-controls"><div id="characterControl" class="character-picker"><span class="section-label" id="pickerLabel">기준 캐릭터</span><button type="button" id="pickerToggle" class="picker-toggle" aria-expanded="false" aria-controls="pickerMenu" aria-labelledby="pickerLabel pickerValue"><span id="pickerValue"></span><span aria-hidden="true">▾</span></button><div id="pickerMenu" class="picker-menu" hidden><label for="pickerSearch" class="sr-only">캐릭터 검색</label><input id="pickerSearch" type="search" placeholder="이름 또는 역할군 검색" autocomplete="off"><div id="pickerOptions" class="picker-options" role="group" aria-label="캐릭터 목록"></div></div></div><label id="keywordControl" hidden><span class="section-label">기준 키워드</span><select id="keywordSelect"></select></label><div class="relation-control"><div class="section-label" id="relationLabel">캐릭터와의 관계</div><div class="filters" id="filters"></div></div></div></div></section>
 <div class="result-top"><h2 id="resultTitle">함께 활용할 캐릭터</h2><span class="count" id="count" aria-live="polite"></span></div><div class="recommendations" id="results"></div><div id="empty" class="empty" hidden><b>이 유형으로 정리된 연결이 없습니다.</b><p class="hint">다른 관계를 선택해 보세요. 연결이 없다고 함께 편성할 수 없다는 뜻은 아닙니다.</p><button class="linkbutton" id="showAll">전체 관계 보기</button></div>
@@ -172,3 +199,4 @@ $('#characterDialog').addEventListener('close',()=>{document.body.style.overflow
 $('#showAll').onclick=()=>{category='all';render()};$('#closeDialog').onclick=()=>$('#characterDialog').close();$('#characterDialog').addEventListener('click',e=>{const d=e.currentTarget,r=d.getBoundingClientRect();if(e.target===d&&(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom))d.close()});
 render();
 </script></body></html>
+
