@@ -632,7 +632,7 @@ function takeHit(grade=null){if(s.breakRest)return;const success=grade==='PERFEC
  let damage=Math.round(raw.hp*rate/Math.max(.05,1+mods.defense)*(1-reduction)*curse);
  const enemy=s.enemies[s.enemyIndex],chance=Math.max(0,(enemy.baseCrit||0)-(s.enemyEffects.plunder?.critReduction||0)),critical=chance>0&&Math.random()<chance;if(critical)damage=Math.round(damage*CRIT_MULTIPLIER);
  const absorbed=Math.min(b.shield||0,damage);b.shield-=absorbed;damage-=absorbed;const beforeHP=s.hp[s.active];s.hp[s.active]=Math.max(0,beforeHP-damage);floatDamage('ally',beforeHP-s.hp[s.active],s.enemyIndex,critical);
- const bp=(grade==='PERFECT'?5:grade==='GOOD'?10:raw.bp)*curse;hitAllyBP(bp);
+ const bp=Math.round(raw.bp*rate)*curse;hitAllyBP(bp);
  s.lastIncomingHit={pattern:s.pattern,grade,damage:beforeHP-s.hp[s.active],absorbed,bp,critical};
  log(patterns[s.pattern].name+(grade?' · '+grade:'')+(critical?' · CRITICAL':'')+' → '+activeMember().name+' · 피해 '+damageText(beforeHP-s.hp[s.active])+' · BP 피해 '+damageText(bp)+(absorbed?' · 보호막 흡수 '+damageText(absorbed):''),'enemy','마네킹');
  if(id==='doll'&&!b.dollTriggered&&s.hp[s.active]>0&&s.hp[s.active]<=3500){b.dollTriggered=true;b.shield=1395;b.shieldTurns=5;grantBuff('doll','earthPower',null,{attack:.2});log('대지의 힘 · 보호막 1395 / 공격력 +20%');}
@@ -876,6 +876,7 @@ for(const id of ['attack','skill','ultimate','counter-button'])$(id).addEventLis
 for(const id of ['ally','enemy','hit'])$(id).addEventListener?.('animationend',e=>{if(e.target!==$(id))return;$(id).classList.remove('flash','hurt','strike');});
 window.combatSnapshot=()=>JSON.parse(JSON.stringify(s));reset();
 })();
+
 
 
 
